@@ -577,11 +577,33 @@ function ChatView({lancs,onAddLanc}){
   function cancelRec(){clearInterval(tmrRef.current);if(mrRef.current?.state==="recording"){mrRef.current.onstop=null;mrRef.current.stop();}chkRef.current=[];setRecSt("idle");setRecSec(0);}
 
   async function processBlob(blob){
-    // Nota: Claude API não suporta áudio nativamente.
-    // Em produção, integre Whisper (OpenAI) aqui para transcrição real.
-    push("ai","🎤 Áudio recebido! A transcrição automática com Whisper estará disponível em breve.\n\nPor enquanto, pode digitar o que falou? 😊");
-    setRecSt("idle");setRecSec(0);
+  try{
+    push("ai","🎤 Transcrevendo áudio...");
+
+    const formData = new FormData();
+    formData.append("audio", blob, "audio.webm");
+
+    const res = await fetch("http://localhost:3001/transcribe", {
+      method: "POST",
+      body: formData
+    });
+
+    const data = await res.json();
+
+    if(!data.text){
+      push("ai","❌ Erro ao transcrever.");
+      return;
+    }
+
+    push("user", data.text);
+
+    // envia texto para IA normal
+    await send(data.text);
+
+  }catch(err){
+    push("ai","❌ Erro ao enviar áudio.");
   }
+}
 
   async function send(txt){
     const msg=(txt||input).trim();if(!msg||busy)return;
